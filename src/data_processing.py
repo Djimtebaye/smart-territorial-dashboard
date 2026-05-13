@@ -41,17 +41,24 @@ def load_data():
         raise KeyError("FILO CSV must contain an 'IRIS' column.")
     socio_df["codcom"] = socio_df["IRIS"].str[:5]
 
-    # BPE is optional — load it but don't crash if absent
-    try:
-        bpe_df = pd.read_csv(
-            "data/raw/BPE_24.csv",
-            sep=";",
-            encoding="cp1252",
-            low_memory=False,
-        )
-        bpe_df["CODPOS"] = bpe_df["CODPOS"].astype(str)
-    except FileNotFoundError:
-        bpe_df = pd.DataFrame()   # empty placeholder
+    # BPE is optional — load it but don't crash if absent or unreadable
+    bpe_df = pd.DataFrame()
+    bpe_path = "data/raw/BPE_24.csv"
+    for enc in ("utf-8", "utf-8-sig", "latin-1", "cp1252"):
+        try:
+            bpe_df = pd.read_csv(
+                bpe_path,
+                sep=";",
+                encoding=enc,
+                low_memory=False,
+            )
+            if "CODPOS" in bpe_df.columns:
+                bpe_df["CODPOS"] = bpe_df["CODPOS"].astype(str)
+            break   # success — stop trying encodings
+        except FileNotFoundError:
+            break   # file doesn't exist, leave bpe_df empty
+        except (UnicodeDecodeError, UnicodeError):
+            continue  # try next encoding
 
     return gdf, socio_df, bpe_df
 
