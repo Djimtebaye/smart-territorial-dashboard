@@ -44,7 +44,7 @@ def load_data():
     # BPE is optional — load it but don't crash if absent or unreadable
     bpe_df = pd.DataFrame()
     bpe_path = "data/raw/BPE_24.csv"
-    for enc in ("utf-8", "utf-8-sig", "latin-1", "cp1252"):
+    for enc in ("utf-8", "utf-8-sig", "latin-1", "cp1252","ANSI"):
         try:
             bpe_df = pd.read_csv(
                 bpe_path,
