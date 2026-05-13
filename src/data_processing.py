@@ -17,7 +17,7 @@ def load_data():
 
     socio_df = pd.read_csv(
         "data/raw/BASE_TD_FILO_DEC_IRIS_2018.csv",
-        sep=";", encoding="ANSI"
+        sep=";"
     )
 
     socio_df["codcom"] = socio_df["IRIS"].str[:5]
