@@ -24,7 +24,7 @@ def load_data():
 
     bpe_df = pd.read_csv(
         "data/raw/BPE_24.csv",
-        sep=";", encoding="ANSI"
+        sep=";", encoding="latin1"
     )
 
     bpe_df["CODPOS"] = bpe_df["CODPOS"].astype(str)
