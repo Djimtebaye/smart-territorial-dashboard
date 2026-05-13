@@ -17,14 +17,14 @@ def load_data():
 
     socio_df = pd.read_csv(
         "data/raw/BASE_TD_FILO_DEC_IRIS_2018.csv",
-        sep=";", encoding="utf-8"
+        sep=";", encoding="ANSI"
     )
 
     socio_df["codcom"] = socio_df["IRIS"].str[:5]
 
     bpe_df = pd.read_csv(
         "data/raw/BPE_24.csv",
-        sep=";", encoding="utf-8"
+        sep=";", encoding="ANSI"
     )
 
     bpe_df["CODPOS"] = bpe_df["CODPOS"].astype(str)
