@@ -1,7 +1,7 @@
 import streamlit as st
 st.subheader("📈 Cluster Distribution")
 
-cluster_chart = px.histogram(
+cluster_chart = st.histogram(
     filtered_df,
     x="cluster"
 )
