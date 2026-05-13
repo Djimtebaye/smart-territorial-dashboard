@@ -14,51 +14,68 @@ SERVICE_COLUMNS = [
 ]
 
 
+def _read_csv_safe(path, sep=";", dtype=None):
+    """
+    Read a CSV trying utf-8, then utf-8-sig, then latin-1.
+    Final fallback: latin-1 + errors='replace' which CANNOT raise UnicodeDecodeError.
+    Raises FileNotFoundError if the file does not exist.
+    """
+    for enc in ("utf-8", "utf-8-sig", "latin-1"):
+        try:
+            return pd.read_csv(
+                path, sep=sep, dtype=dtype, encoding=enc, low_memory=False
+            )
+        except UnicodeDecodeError:
+            continue
+
+    # Absolute last resort — latin-1 maps every byte 0x00-0xFF, plus replace
+    return pd.read_csv(
+        path,
+        sep=sep,
+        dtype=dtype,
+        encoding="latin-1",
+        encoding_errors="replace",
+        low_memory=False,
+    )
+
+
 def load_data():
     """
     Load all datasets from data/raw/.
 
     Returns
     -------
-    gdf : GeoDataFrame   — commune shapefile
-    socio_df : DataFrame — FILO socio-economic data
-    bpe_df : DataFrame   — BPE equipment data
+    gdf      : GeoDataFrame  — commune shapefile
+    socio_df : DataFrame     — FILO socio-economic data (IRIS 2018)
+    bpe_df   : DataFrame     — BPE equipment data (empty DataFrame if absent)
 
     Raises
     ------
-    FileNotFoundError if any required file is missing.
+    FileNotFoundError  if commune.shp or FILO CSV are missing.
+    KeyError           if FILO CSV has no 'IRIS' column.
     """
+    # 1. Shapefile
     gdf = gpd.read_file("data/raw/commune.shp")
 
-    socio_df = pd.read_csv(
-        "data/raw/BASE_TD_FILO_DEC_IRIS_2018.csv",
-        sep=";",
-        dtype=str,          # read as str first to avoid mixed-type issues
-        low_memory=False,
+    # 2. FILO socio-economic CSV
+    socio_df = _read_csv_safe(
+        "data/raw/BASE_TD_FILO_DEC_IRIS_2018.csv", sep=";", dtype=str
     )
-    # Build commune code from IRIS (first 5 chars)
     if "IRIS" not in socio_df.columns:
-        raise KeyError("FILO CSV must contain an 'IRIS' column.")
+        raise KeyError(
+            f"FILO CSV must contain an 'IRIS' column. "
+            f"Found: {list(socio_df.columns[:10])}"
+        )
     socio_df["codcom"] = socio_df["IRIS"].str[:5]
 
-    # BPE is optional — load it but don't crash if absent or unreadable
+    # 3. BPE equipment CSV — optional
     bpe_df = pd.DataFrame()
-    bpe_path = "data/raw/BPE_24.csv"
-    for enc in ("utf-8", "utf-8-sig", "latin-1", "cp1252","ANSI"):
-        try:
-            bpe_df = pd.read_csv(
-                bpe_path,
-                sep=";",
-                encoding=enc,
-                low_memory=False,
-            )
-            if "CODPOS" in bpe_df.columns:
-                bpe_df["CODPOS"] = bpe_df["CODPOS"].astype(str)
-            break   # success — stop trying encodings
-        except FileNotFoundError:
-            break   # file doesn't exist, leave bpe_df empty
-        except (UnicodeDecodeError, UnicodeError):
-            continue  # try next encoding
+    try:
+        bpe_df = _read_csv_safe("data/raw/BPE_24.csv", sep=";")
+        if "CODPOS" in bpe_df.columns:
+            bpe_df["CODPOS"] = bpe_df["CODPOS"].astype(str)
+    except FileNotFoundError:
+        pass  # BPE is optional — silently skip
 
     return gdf, socio_df, bpe_df
 
@@ -67,12 +84,11 @@ def merge_data(gdf, socio_df):
     """
     Merge spatial and socio-economic datasets on commune code.
 
-    The shapefile join key is 'code_posta'; the FILO key is 'codcom'.
-    Adjust these if your shapefile uses a different column name.
+    Shapefile join key : 'code_posta' (or a known alias).
+    FILO join key      : 'codcom' (built from IRIS column).
     """
     if "code_posta" not in gdf.columns:
-        # Fallback: try common alternative names
-        for alt in ["CODE_POST", "code_post", "cp", "CODE_POSTA"]:
+        for alt in ["CODE_POST", "code_post", "cp", "CODE_POSTA", "codepostal"]:
             if alt in gdf.columns:
                 gdf = gdf.rename(columns={alt: "code_posta"})
                 break
@@ -94,14 +110,12 @@ def merge_data(gdf, socio_df):
 
 def clean_data(data_df, service_columns=None):
     """
-    Coerce SERVICE_COLUMNS to numeric and fill NaN with 0.
+    Coerce service columns to numeric and fill NaN with 0.
 
     Parameters
     ----------
-    data_df : GeoDataFrame
-    service_columns : list of str, optional
-        Subset of SERVICE_COLUMNS actually present in data_df.
-        Defaults to SERVICE_COLUMNS (all four).
+    data_df         : GeoDataFrame
+    service_columns : list of str — columns to clean (default: SERVICE_COLUMNS)
     """
     if service_columns is None:
         service_columns = SERVICE_COLUMNS
