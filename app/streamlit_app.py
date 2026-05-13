@@ -1,4 +1,6 @@
 import streamlit as st
+import plotly.express as px
+import folium
 st.subheader("📈 Cluster Distribution")
 
 cluster_chart = px.histogram(
