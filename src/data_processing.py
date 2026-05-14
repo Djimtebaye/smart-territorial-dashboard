@@ -64,7 +64,7 @@ def load_data():
     KeyError           if FILO CSV has no 'IRIS' column.
     """
     # 1. Shapefile
-    gdf = gpd.read_file("data/raw/commune.shp")
+    gdf = gpd.read_file("data/raw/com_ile_de_france_encercle.shp")
 
     if len(gdf.columns) <= 1:
         raise RuntimeError(
